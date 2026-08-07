@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+motor
+langchain
+langchain-google-genai
+pydantic
+pydantic-settings
+python-dotenv

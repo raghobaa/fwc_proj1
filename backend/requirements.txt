@@ -1,9 +1,17 @@
 fastapi
 uvicorn
+pymongo
 motor
 langchain
+langchain-core
 langchain-google-genai
 langchain-groq
+groq
 pydantic
 pydantic-settings
 python-dotenv
+pyjwt
+passlib[bcrypt]
+bcrypt
+requests
+

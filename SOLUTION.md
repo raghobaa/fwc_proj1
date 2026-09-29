@@ -1,271 +1,101 @@
 # Solution Note
 
-# Overview
+## Overview
 
-Trendly AI Support Assistant is an AI-powered customer support system built for an e-commerce platform. It combines Google Gemini Function Calling with MongoDB Atlas Vector Search (RAG) to answer customer queries related to orders, returns, shipping, refunds, and company policies.
+**Trendly AI Support Assistant** is an agentic customer support system designed for an e-commerce platform. It combines **LangChain**, **FastAPI**, **Google Gemini Function Calling**, **Groq Fallback**, and **MongoDB Atlas Vector Search (RAG)** to provide grounded, real-time customer support for orders, returns, shipping, refunds, and company policies.
 
-Instead of relying on predefined workflows, the assistant dynamically selects the required tools based on the customer's request. This makes the system flexible, extensible, and capable of handling multi-step conversations naturally.
+Instead of hardcoded decision trees, the system uses an agentic tool-calling architecture: the language model reasons dynamically over customer intents and executes specific backend tools to complete multi-step tasks.
 
 ---
 
-# Architecture
-
-The application follows an agent-based architecture.
+## Architecture
 
 ```
-                 React + Tailwind Frontend
-                        │
-                     Axios
-                        │
-                Express Backend
-                 (/chat endpoint)
-                        │
-                Agent Orchestrator
-                        │
-          Google Gemini (Function Calling)
-                        │
-      ┌──────────────┬───────────────┬
-      │              │               │
- Order Tool     Policy RAG Tool   Support Tool
-      │              │               │
- orders.json   MongoDB Atlas     Ticket Generator
+                 React + Vite + Tailwind Frontend
+                               │
+                         (JWT Bearer)
+                               │
+                        FastAPI Backend
+                        (/chat endpoint)
+                               │
+               LangChain Agent Orchestration Loop
+                               │
+           ┌───────────────────┴───────────────────┐
+           │                                       │
+  Google Gemini 2.5 Flash            Groq LLaMA 3.3 70B
+   (Primary Tool Calling)         (Rate-Limit / Quota Fallback)
+           │                                       │
+           └───────────────────┬───────────────────┘
+                               │
+   ┌───────────────┬───────────┴───────────┬───────────────┐
+   │               │                       │               │
+Order Tool    Policy RAG Tool         Support Tool    Return Flow Tool
+(get_order)   (search_policy)        (create_ticket)  (create_return)
+   │               │                       │               │
+MongoDB /    MongoDB Atlas Vector      Support Ticket   Deterministic
+orders.json  Search + Local Fallback     Generator      Multi-Step Flow
 ```
 
 ---
 
-# Components
+## System Components
 
-## Frontend
+### 1. Frontend
+- **Framework**: React 19 + Vite + Tailwind CSS v4.
+- **State & Auth**: Manages JWT authentication state, role storage (`customer`, `agent`, `admin`), message thread history, and interactive chat interface.
+- **Client**: Axios instance with JWT Authorization Bearer interceptors.
 
-**Technology**
+### 2. Backend API
+- **Framework**: Python 3.10+ with FastAPI and Uvicorn.
+- **Authentication**: OAuth2 / JWT authentication (`HS256`) with role extraction and customer account resolution.
+- **Data Stores**: MongoDB Atlas with local fallback (`orders.json`, `trendly_policy.md`, `chat_history.json`).
 
-- React
-- Tailwind CSS
-- Axios
-
-**Responsibilities**
-
-- Customer selection
-- Chat interface
-- Display AI responses
-- Maintain chat history
-
----
-
-## Backend
-
-**Technology**
-
-- Node.js
-- Express
-
-**Responsibilities**
-
-- Receive chat requests
-- Maintain customer chat sessions
-- Coordinate Gemini requests
-- Execute tools
-- Return the final response
+### 3. LangChain Agent Orchestrator
+- **Tool Binding**: Tools are defined with `@tool` and explicit Pydantic input schemas (`args_schema`), bound to the model via `llm.bind_tools(tools)`.
+- **Reasoning Loop**: Maintains a multi-turn reasoning loop executing requested tools until a final user-facing response is generated.
+- **Quota & Rate-Limit Fallback**: Automatically falls back to **Groq (`llama-3.3-70b-versatile`)** when Gemini encounters rate limits or quota exhaustion (`429 / RESOURCE_EXHAUSTED`).
 
 ---
 
-# Agent Orchestrator
+## Available Tools & Pipelines
 
-The Agent Orchestrator is the core component of the application.
+### 1. Order Tool (`get_order`)
+- Retrieves customer orders, item details, tracking numbers, shipping carriers, and delivered timestamps.
+- Checks if the order belongs to the authenticated customer to prevent cross-account data leaks.
 
-It acts as the bridge between Google Gemini and the available tools.
+### 2. Policy RAG Tool (`search_policy`)
+- Performs vector similarity search on MongoDB Atlas `policy_chunks` collection using `models/text-embedding-004`.
+- **Resilient Fallback**: If vector search is offline or unavailable, automatically performs local section-level keyword and relevance retrieval over `trendly_policy.md`.
+- Prevents hallucinations by strictly grounding policy answers on official policy documentation.
 
-Instead of hardcoding workflows, the orchestrator lets Gemini decide which tool is required for each customer request.
+### 3. Support Ticket Tool (`create_support_ticket`)
+- Automatically generates support ticket identifiers (`SUP-XXXX`) for human agent escalation (e.g. lost parcels, damaged products, manual reviews).
 
-The execution flow is:
-
-1. The customer's message is sent to Gemini.
-2. Gemini analyzes the request.
-3. If additional information is required, Gemini returns a function call instead of a text response.
-4. The orchestrator identifies the requested tool.
-5. The tool is executed.
-6. The tool result is sent back to Gemini.
-7. Gemini either:
-   - requests another tool, or
-   - generates the final response.
-8. The response is returned to the frontend.
-
-This loop continues until Gemini has enough information to answer the customer.
-
-Because of this design, the assistant can dynamically combine multiple tools without predefined decision trees.
+### 4. Return Flow Pipeline (`create_return`)
+- Executes a deterministic, audited 5-step return pipeline:
+  1. **Order Lookup**: Retries up to 3 times on timeout.
+  2. **Window Validation**: Verifies delivery date within the 30-day calendar limit.
+  3. **Non-Returnable Enforcement**: Rejects non-returnable categories (jewellery, socks, innerwear, beauty, gift cards).
+  4. **Refund Calculation**: Evaluates final sale constraints and computes itemized refund totals.
+  5. **Human Approval Threshold**: Any refund exceeding **₹20,000** is routed for human approval instead of auto-processing.
 
 ---
 
-# Available Tools
+## Key Design Decisions
 
-## 1. Order Tool
+### Why LangChain & Function Calling?
+Rather than hardcoding rigid conversational flows, LangChain provides a structured abstraction for tool binding, dynamic function calling, message typing, and multi-model fallbacks.
 
-Purpose
+### Why RAG for Policies?
+E-commerce policies are subject to precise rules (e.g. 30-day window, ₹300 deduction for missing shoe boxes, ₹250 delayed delivery credit). RAG guarantees that the LLM grounds its answers directly on verified policy text.
 
-Retrieve customer order information.
-
-Used for
-
-- Order tracking
-- Delivery status
-- Return eligibility
-- Order details
-
-Data Source
-
-- Local `orders.json`
+### Why Deterministic Code for Return Evaluation?
+Financial and business logic (eligibility checks, non-returnable category lists, refund totals, approval thresholds) must be 100% predictable and audited. Wrapping deterministic code in a tool (`create_return`) provides both AI flexibility and business correctness.
 
 ---
 
-## 2. Policy Tool
+## Trade-offs & Production Considerations
 
-Purpose
-
-Retrieve the relevant company policy.
-
-Used for
-
-- Returns
-- Refunds
-- Exchanges
-- Shipping
-- Lost parcels
-- Cancellation
-- Address changes
-
-Data Source
-
-- MongoDB Atlas Vector Search
-
-This tool enables Retrieval-Augmented Generation (RAG), ensuring responses are grounded in official company documentation.
-
----
-
-## 3. Support Ticket Tool
-
-Purpose
-
-Escalate requests requiring manual intervention.
-
-Triggered when
-
-- Customer requests a human agent
-- Lost parcel
-- Damaged item
-- Payment dispute
-- Manual review required
-- Customer insists after policy rejection
-
-Output
-
-- Support Ticket ID
-
----
-
-# Conversation Memory
-
-Each customer has an independent chat session.
-
-This enables the assistant to understand follow-up questions such as:
-
-- "Can I return it?"
-- "How long do I have?"
-- "Create the return."
-
-without asking for the order ID again.
-
-Customer conversations remain isolated, preventing context leakage between different users.
-
----
-
-# Key Design Decisions
-
-## Why Google Gemini Function Calling?
-
-Instead of writing separate workflows for every customer scenario, Gemini decides which tool is required based on the customer's request.
-
-This makes the system:
-
-- Easier to extend
-- More maintainable
-- Capable of multi-step reasoning
-
----
-
-## Why RAG?
-
-Company-specific policies should always come from official documentation rather than the language model's internal knowledge.
-
-MongoDB Atlas Vector Search retrieves the most relevant policy before Gemini generates the response.
-
-This significantly reduces hallucinations.
-
----
-
-## Why an Agent Orchestrator?
-
-The orchestrator separates business logic from the language model.
-
-Its responsibilities are:
-
-- Execute requested tools
-- Return tool results
-- Maintain conversation flow
-- Manage customer chat sessions
-
-This makes adding new tools straightforward without changing the overall architecture.
-
----
-
-## Why Conversation Memory?
-
-Maintaining customer-specific chat sessions creates a more natural user experience by avoiding repeated questions for information already shared.
-
----
-
-# Trade-offs
-
-## Local Order Dataset
-
-Order information is stored in a local JSON file for simplicity.
-
-In production, this would be replaced with an Order Management System or database.
-
----
-
-## Simulated Authentication
-
-Customer identity is selected through a dropdown.
-
-A production system would use authenticated customer accounts.
-
----
-
-## Simulated Support Tickets
-
-Support tickets are generated locally.
-
-A production implementation would integrate with systems such as Zendesk, Freshdesk, or Salesforce.
-
----
-
-# Known Limitations
-
-- Order data is stored locally rather than in a production database.
-- Customer authentication is simulated.
-- Support tickets are mock-generated instead of being created in a real ticketing platform.
-- The assistant relies on Gemini API availability, so response times may vary during periods of high demand.
-
----
-
-# Discovery Questions
-
-Before implementing this system in production, I would ask:
-
-1. What is the source of truth for customer orders?
-2. Which support platform should tickets be created in?
-3. What authentication and authorization mechanism should be used?
-4. Which company policies are updated frequently, and how should they be synchronized?
-5. Are there response time SLAs or escalation rules that the assistant should follow?
-6. Should customer conversations be persisted across devices and sessions?
-7. Are there compliance or data privacy requirements for storing customer conversations?
+1. **Authentication**: Implemented via secure JWT tokens with email-based role resolution. In production, this can be linked to SSO / OAuth providers (Auth0, Okta, Firebase Auth).
+2. **OMS Integration**: Orders are read from MongoDB Atlas with a local JSON fallback. In production, this connects to an enterprise OMS (Shopify, SAP, Salesforce Commerce).
+3. **Ticketing System**: Returns and support tickets generate unique ticket IDs; in production, these integrate directly with Zendesk, Freshdesk, or Jira Service Management.

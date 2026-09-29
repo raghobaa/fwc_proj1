@@ -7,15 +7,18 @@ async def import_data():
         db = await get_db()
         customers_collection = db.get_collection("customers")
         orders_collection = db.get_collection("orders")
+        returns_collection = db.get_collection("returns")
+
         
         with open("src/data/orders.json", "r") as f:
             data = json.load(f)
             
-        print("JSON data loaded.")
+        print("Orders JSON data loaded.")
         
         await customers_collection.delete_many({})
         await orders_collection.delete_many({})
-        print("Cleared old customer and order records.")
+        await returns_collection.delete_many({})
+        print("Cleared old customer, order, and return records.")
         
         if data.get("customers"):
             await customers_collection.insert_many(data["customers"])
@@ -24,9 +27,17 @@ async def import_data():
         if data.get("orders"):
             await orders_collection.insert_many(data["orders"])
             print(f"Successfully imported {len(data['orders'])} orders.")
+
+        with open("src/data/returns.json", "r") as f:
+            returns_data = json.load(f)
+
+        if returns_data:
+            await returns_collection.insert_many(returns_data)
+            print(f"Successfully imported {len(returns_data)} return records.")
             
     except Exception as e:
-        print(f"Failed to import JSON data: {e}")
+        print(f"Failed to import data: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(import_data())

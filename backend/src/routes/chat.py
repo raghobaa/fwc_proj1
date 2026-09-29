@@ -76,7 +76,10 @@ async def _handle_chat(request: ChatRequest, current_user: TokenData):
             request.message,
             customer_id,
             chat_history,
+            user_role=current_user.role,
+            user_email=current_user.username,
         )
+
 
         # Persist updated history back to MongoDB
         await update_chat_db(current_user.username, new_messages)

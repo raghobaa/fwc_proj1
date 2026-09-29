@@ -200,7 +200,18 @@ def create_return_record(order_id: str, customer_id: str, reason: str, refund: d
     }
     records.append(record)
     _write_returns(records)
+
+    # Persist to MongoDB returns collection if connected
+    try:
+        from pymongo import MongoClient
+        uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+        m_client = MongoClient(uri, serverSelectionTimeoutMS=1000)
+        m_client["trendly"]["returns"].insert_one(dict(record))
+    except Exception:
+        pass
+
     return record
+
 
 # ── Orchestrator ────────────────────────────────────────────────────────────
 

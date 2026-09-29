@@ -24,5 +24,97 @@
         }
       ]
     }
+  ],
+  "raghavbhat2004@gmail.com": [
+    {
+      "role": "human",
+      "content": "hello"
+    },
+    {
+      "role": "ai",
+      "content": "Hello! How can I assist you today?"
+    },
+    {
+      "role": "human",
+      "content": "what are all the services do u provide"
+    },
+    {
+      "role": "ai",
+      "content": "I can help you with questions about your orders, returns, and our company policies. What can I help you with today?"
+    },
+    {
+      "role": "human",
+      "content": "is there any active order of mine right now"
+    },
+    {
+      "role": "ai",
+      "content": "I can only look up specific orders if you provide me with an order ID. Do you have an order ID I can use?"
+    },
+    {
+      "role": "human",
+      "content": "tell me about the company policies"
+    },
+    {
+      "role": "ai",
+      "content": "What specifically about our company policies would you like to know? For example, are you interested in our return policy, shipping policy, or something else?"
+    },
+    {
+      "role": "human",
+      "content": "return policy"
+    },
+    {
+      "role": "ai",
+      "content": "I am sorry, but I could not find any relevant information about the return policy in the official Trendly policy."
+    },
+    {
+      "role": "human",
+      "content": "can you tell me about return policy"
+    },
+    {
+      "role": "ai",
+      "content": "Our return policy allows items to be returned within 30 calendar days of the delivery date. Footwear must be returned in its original shoe box, otherwise, a ₹300 deduction will be applied. Please note that innerwear, socks, jewelry, beauty and fragrance products, face masks, and gift cards are non-returnable for hygiene and safety reasons."
+    }
+  ],
+  "admin@trendly.com": [
+    {
+      "role": "human",
+      "content": "hii"
+    },
+    {
+      "role": "ai",
+      "content": "Hello! How can I assist you today?"
+    },
+    {
+      "role": "human",
+      "content": "how can you help me "
+    },
+    {
+      "role": "ai",
+      "content": "I can help you with questions about your orders, our company policies, or assist you with returns. Just let me know what you need!"
+    },
+    {
+      "role": "human",
+      "content": "is there any returns left to appprove"
+    },
+    {
+      "role": "ai",
+      "content": "I cannot directly check for returns that are pending approval. If you have a specific return in mind, please provide the order ID, and I can look into its status or create a support ticket for you."
+    },
+    {
+      "role": "human",
+      "content": "is there any returns left to approve?"
+    },
+    {
+      "role": "ai",
+      "content": "Yes, there is **1 return** left to approve:\n\n- **Return ID:** RET-91044\n- **Order ID:** TR-9901\n- **Customer:** Priya Nair (priya.nair@example.com)\n- **Refund Amount:** Rs. 32,000\n- **Reason:** Designer apparel bundle sizing mismatch\n- **Status:** PENDING_APPROVAL\n\n⚠️ **Note:** This return exceeds the Rs. 20,000 threshold and requires manual sign-off.\n\nWould you like to approve or reject this return?"
+    },
+    {
+      "role": "human",
+      "content": "check for returns "
+    },
+    {
+      "role": "ai",
+      "content": "There is **1 return** pending approval:\n\n- **Return ID:** RET-91044\n- **Order ID:** TR-9901\n- **Customer:** Priya Nair (priya.nair@example.com)\n- **Refund Amount:** Rs. 32,000\n- **Reason:** Designer apparel bundle sizing mismatch\n- **Status:** PENDING_APPROVAL\n\n⚠️ **Note:** This return exceeds the Rs. 20,000 threshold and requires manual sign-off.\n\nWould you like to approve or reject this return?"
+    }
   ]
 }

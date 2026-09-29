@@ -19,17 +19,24 @@ def get_llm():
 
 def get_fallback_llm():
     """Groq-backed LLM used when Gemini hits rate limits / quota exhaustion."""
-    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    load_dotenv(override=True)
+    model_name = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    if not model_name or "llama" in model_name.lower():
+        model_name = "qwen/qwen3.8-27b"
     return ChatGroq(
         model=model_name,
         api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.0,
     )
 
+
+
 def get_embeddings():
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    model_name = os.getenv("GEMINI_EMBEDDING_MODEL", "models/text-embedding-004")
     return GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-2",
+        model=model_name,
         google_api_key=os.getenv("GEMINI_API_KEY")
     )
+
 

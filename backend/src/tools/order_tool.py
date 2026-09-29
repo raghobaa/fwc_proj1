@@ -1,21 +1,54 @@
 import os
 import re
+import json
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize MongoDB connection at module level
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGODB_URI)
-db = client["trendly"]
-orders_collection = db["orders"]
-customers_collection = db["customers"]
+ORDERS_FILE = Path(__file__).resolve().parents[1] / "data" / "orders.json"
 
-def get_order(order_id: str, customer_id: str) -> dict:
-    """Retrieve an order belonging to the authenticated customer."""
-    order = orders_collection.find_one({"order_id": {"$regex": f"^{order_id}$", "$options": "i"}})
+# Initialize MongoDB connection
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+try:
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
+    db = client["trendly"]
+    orders_collection = db["orders"]
+    customers_collection = db["customers"]
+except Exception:
+    client = None
+    db = None
+    orders_collection = None
+    customers_collection = None
+
+def _get_local_data():
+    if not ORDERS_FILE.exists():
+        return {"customers": [], "orders": []}
+    try:
+        with open(ORDERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"customers": [], "orders": []}
+
+def get_order(order_id: str, customer_id: str = None) -> dict:
+    """Retrieve an order belonging to the authenticated customer, or any order if customer_id is None/ADMIN."""
+    order = None
+    if orders_collection is not None:
+        try:
+            order = orders_collection.find_one({"order_id": {"$regex": f"^{order_id}$", "$options": "i"}})
+        except Exception as e:
+            print(f"[Order Tool] Mongo lookup failed ({e}), using local orders.json")
+            order = None
+
+    if order is None:
+        local_data = _get_local_data()
+        order_id_clean = order_id.strip().lower()
+        for o in local_data.get("orders", []):
+            if o.get("order_id", "").strip().lower() == order_id_clean:
+                order = dict(o)
+                break
 
     if not order:
         return {
@@ -23,11 +56,12 @@ def get_order(order_id: str, customer_id: str) -> dict:
             "message": "Order not found."
         }
     
-    if order.get("customer_id") != customer_id:
+    if customer_id and customer_id != "ADMIN" and order.get("customer_id") != customer_id:
         return {
             "found": False,
             "message": "This order does not belong to the authenticated customer."
         }
+
 
     # Convert MongoDB ObjectId to string if present
     if "_id" in order:
@@ -35,10 +69,7 @@ def get_order(order_id: str, customer_id: str) -> dict:
 
     return_info = None
     if order.get("delivered_at"):
-        # We need a timezone-aware current time to compare with parsed dates if they have TZ info
         today = datetime.now(timezone.utc)
-        
-        # Parse delivered_at (e.g. 2026-07-14T09:20:00Z)
         delivered_date_str = order["delivered_at"]
         if delivered_date_str.endswith('Z'):
             delivered_date_str = delivered_date_str[:-1] + '+00:00'
@@ -47,7 +78,6 @@ def get_order(order_id: str, customer_id: str) -> dict:
         return_deadline = delivered_date + timedelta(days=30)
         
         eligible = today <= return_deadline
-        
         days_remaining = (return_deadline - today).days
         
         return_info = {
@@ -65,11 +95,29 @@ def get_order(order_id: str, customer_id: str) -> dict:
 
 def customer_exists(customer_id: str) -> bool:
     """Check if a customer exists."""
-    return customers_collection.count_documents({"customer_id": customer_id}) > 0
+    if customers_collection is not None:
+        try:
+            return customers_collection.count_documents({"customer_id": customer_id}) > 0
+        except Exception:
+            pass
+    local_data = _get_local_data()
+    return any(c.get("customer_id") == customer_id for c in local_data.get("customers", []))
 
 def get_customer_id_by_email(email: str):
     """Resolve a customer ID from the authenticated email, or None if unknown."""
     if not email:
         return None
-    customer = customers_collection.find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
-    return customer.get("customer_id") if customer else None
+    if customers_collection is not None:
+        try:
+            customer = customers_collection.find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+            if customer:
+                return customer.get("customer_id")
+        except Exception:
+            pass
+    local_data = _get_local_data()
+    email_clean = email.strip().lower()
+    for c in local_data.get("customers", []):
+        if c.get("email", "").strip().lower() == email_clean:
+            return c.get("customer_id")
+    return None
+

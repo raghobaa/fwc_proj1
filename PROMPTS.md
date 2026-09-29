@@ -1,170 +1,105 @@
-# Prompt Engineering
+# Prompt Engineering & System Instructions
 
 ## Objective
 
-The goal of this project was to build an AI customer support assistant that provides accurate, policy-grounded responses while dynamically using tools for order retrieval, policy lookup, and support ticket creation.
+The goal of this project is to build an AI customer support assistant that provides accurate, policy-grounded responses while dynamically using LangChain tools for order retrieval, policy lookup, support ticket creation, and deterministic return processing.
 
-During development, the prompts were refined through multiple iterations to improve response quality, reduce hallucinations, and make conversations feel more natural.
-
----
-
-# Iteration 1 – Basic Assistant
-
-### Initial Prompt
-
-The assistant was initially instructed to behave as a customer support chatbot and answer customer queries.
-
-### Problems Observed
-
-- Responses were too verbose.
-- Generated Markdown formatting such as **bold** and bullet lists.
-- Sometimes answered policy questions from its own knowledge instead of using the policy database.
-- Occasionally invented information.
-
-### Improvement
-
-The prompt was updated to keep responses shorter and rely more on tool outputs.
+Prompts and tool schemas were refined across 8 major iterations to eliminate hallucinations, enforce clean plain-text formatting, handle multi-step return approvals, and ensure multi-model stability across Google Gemini and Groq.
 
 ---
 
-# Iteration 2 – Tool Usage
+## Prompt Evolution Across Iterations
 
-### Problem
-
-Gemini sometimes answered directly without calling the appropriate tool.
-
-For example:
-
-- Return policy questions
-- Shipping policy
-- Refund eligibility
-
-### Improvement
-
-The tool descriptions were rewritten to clearly specify when each tool should be used.
-
-For example:
-
-- Order Tool → Customer order information
-- Policy Tool → Company policies
-- Support Ticket Tool → Manual escalation
-
-This resulted in much more consistent function calling.
+### Iteration 1 – Basic Support Persona
+- **Initial Prompt**: Instructed the model to behave as a helpful customer support agent.
+- **Problems**: Responses were verbose, heavily styled with Markdown headers and bullet points, and answered policy questions from internal LLM training data rather than company documentation.
+- **Fix**: Restricted output length and introduced grounding constraints.
 
 ---
 
-# Iteration 3 – Reducing Hallucinations
-
-### Problem
-
-When asked questions like:
-
-> Can I get a discount?
-
-The assistant generated responses about:
-
-- Newsletters
-- Coupons
-- Promotions
-
-Even though none of these existed in the official Trendly policy.
-
-### Improvement
-
-The prompt was updated with instructions such as:
-
-- Always use the Policy Tool for policy-related questions.
-- Never invent company policies.
-- If information is unavailable, clearly state that it is not present in the official policy.
-
-This significantly reduced hallucinations.
+### Iteration 2 – Tool Calling & Pydantic Schemas
+- **Problem**: The LLM occasionally attempted to answer order tracking and refund questions directly without invoking backend tools.
+- **Fix**: Defined strict LangChain `@tool` descriptions and Pydantic `args_schema` models with explicit parameter definitions, ensuring the model consistently routes queries to `get_order`, `search_policy`, and `create_support_ticket`.
 
 ---
 
-# Iteration 4 – Conversation Style
+### Iteration 3 – Anti-Hallucination Guardrails
+- **Problem**: When asked about coupons, discounts, or promotions (*"Can I get a 20% discount code?"*), the LLM generated plausible-sounding promotional offers that did not exist in Trendly policy.
+- **Fix**: Added strict negative constraints:
+  - *"Never invent discounts, coupons, newsletters, promotions, price matching, goodwill credits, or offers that are not explicitly present in the policy."*
+  - *"If the policy does not mention something, clearly state that the information is not available in the official policy."*
 
-### Problem
+---
 
-Responses looked like documentation instead of a real customer support chat.
+### Iteration 4 – Conversational Style & Plain-Text Constraints
+- **Problem**: Chat UI responses included Markdown tags (`**bold**`, `# headers`) that looked like technical documentation rather than a real support representative.
+- **Fix**: Explicit formatting rules:
+  - *"Respond in plain text. Do NOT use Markdown, bold, italic, headings, or unnecessary bullet lists."*
+  - *"Keep responses concise (usually 2-4 sentences). Sound like a professional customer support agent."*
 
-Example:
+---
 
-- Long paragraphs
-- Markdown formatting
-- Excessive explanations
+### Iteration 5 – Human Escalation & Ticket Generation
+- **Problem**: When a customer requested an action barred by policy or reported a lost parcel, the assistant previously responded with a flat refusal (*"I can't do that"*).
+- **Fix**: Instructed the agent to invoke `create_support_ticket` for manual review, lost-parcel claims, and damaged products, always retaining and stating the generated `SUP-XXXX` ticket number in the final reply.
 
-### Improvement
+---
 
-Formatting instructions were added:
+### Iteration 6 – Dynamic Return Eligibility
+- **Problem**: The assistant initially relied only on static policy text to evaluate return eligibility, failing to accurately calculate whether 30 calendar days had elapsed from the delivery date.
+- **Fix**: Enhanced the order tool and return flow to dynamically compare `delivered_at` with the current UTC timestamp, calculating exact remaining days and return deadlines.
 
-- Do NOT use Markdown.
+---
+
+### Iteration 7 – Deterministic Return Flow & Approval Thresholds
+- **Problem**: Direct LLM-driven returns risked hallucinating refund calculations or bypassing category exclusions (e.g. hygiene restrictions on jewellery and innerwear).
+- **Fix**: Integrated a deterministic 5-step return tool (`create_return`). The system prompt instructs:
+  - *"Whenever the customer asks to return or exchange an item, call create_return."*
+  - *"If create_return returns requiresApproval: true, inform the customer that a human agent will review it because the refund exceeds the approval threshold (₹20,000)."*
+
+---
+
+### Iteration 8 – Multi-Model Fallback Compatibility (Gemini + Groq)
+- **Problem**: When switching to Groq (`llama-3.3-70b-versatile`) during Gemini rate-limiting, prompts needed to be model-agnostic and avoid proprietary system tag dependencies.
+- **Fix**: Standardized system instruction delivery using LangChain `SystemMessage` objects, ensuring identical tool-calling and response quality across both LLM providers.
+
+---
+
+## Current Production System Instruction
+
+```text
+You are Trendly's AI customer support assistant.
+
+Your primary goal is to resolve the customer's issue accurately using the available tools.
+
+Guidelines:
+- Keep responses concise (usually 2-4 sentences).
+- Answer the customer's question directly.
+- Do not repeat information already provided unless necessary.
+- If the customer asks a follow-up question, continue naturally instead of restating previous answers.
+- Sound like a professional customer support agent.
+
+Formatting:
 - Respond in plain text.
-- Keep responses short.
-- Use conversational language.
-- Use short paragraphs.
+- Do NOT use Markdown.
+- Do NOT use **bold**, *italic*, headings, or unnecessary bullet lists.
+- Avoid phrases like "Here are the tracking details".
+- Write naturally as if chatting with a customer.
 
-This produced a cleaner chat experience.
+Knowledge rules:
+- The official Trendly policy is the ONLY source of truth for company policies.
+- Never invent discounts, coupons, newsletters, promotions, price matching, goodwill credits, or offers that are not explicitly present in the policy.
+- If the policy does not mention something, clearly state that the information is not available in the official policy.
+- Do not answer company policy questions using general knowledge.
 
----
+Tool response rules:
+- When a support ticket is created, always include the ticket ID in your response.
+- If a tool returns an order ID, tracking number, or support ticket number, never omit those identifiers.
+- Do not summarize away important identifiers returned by tools.
 
-# Iteration 5 – Support Ticket Handling
-
-### Problem
-
-When a customer requested an action that was not allowed by policy, the assistant simply refused the request.
-
-Example:
-
-Customer:
-
-> Create the return anyway.
-
-Assistant:
-
-> I can't do that.
-
-### Improvement
-
-The Support Ticket Tool description was refined to instruct Gemini to escalate appropriate cases instead of ending the conversation.
-
-The assistant now creates a support ticket whenever manual review is appropriate.
-
----
-
-# Iteration 6 – Return Eligibility
-
-### Problem
-
-The assistant initially relied only on policy text to determine return eligibility.
-
-### Improvement
-
-The Order Tool was enhanced to calculate return eligibility dynamically using the current date and the order's delivery date.
-
-This ensured accurate responses instead of relying on fixed dates.
-
----
-
-# Final Prompt Design
-
-The final system prompt focuses on:
-
-- Acting as a helpful customer support assistant.
-- Using tools whenever additional information is required.
-- Answering policy questions only using retrieved company policies.
-- Keeping responses concise and conversational.
-- Avoiding Markdown formatting.
-- Avoiding hallucinations.
-- Escalating to human support when appropriate.
-
----
-
-# Key Learnings
-
-Through prompt iteration, I learned that:
-
-- Well-written tool descriptions are just as important as the system prompt.
-- RAG significantly reduces hallucinations for company-specific policies.
-- Small formatting instructions greatly improve the user experience.
-- Clear escalation rules help the assistant handle edge cases more naturally.
-- Iterative prompt refinement leads to more reliable and predictable AI behavior.
+Return flow rules:
+- Whenever the customer asks to return or exchange an item, or asks whether they can return an order, call the create_return tool with the order ID and the customer's reason.
+- If create_return returns requiresApproval: true, tell the customer the return has been submitted and that a human agent will review it because the refund exceeds the approval threshold. Include the return ID.
+- If create_return succeeds and no approval is needed, confirm the return is created, include the return ID, and state the refund amount and that it is processed after inspection.
+- If create_return fails, clearly explain the reason (e.g. expired window, non-returnable category, final sale item, or order not found) using the issues returned by the tool.
+```

@@ -1,1 +1,77 @@
-[]
+[
+  {
+    "returnId": "RET-88201",
+    "orderId": "TR-4524",
+    "customerId": "C-101",
+    "customerEmail": "marcus.bell@example.com",
+    "reason": "Customer found sound profile unsuitable for studio work",
+    "refundAmount": 24999,
+    "requiresApproval": true,
+    "status": "APPROVED",
+    "approvalReason": "Refund amount Rs. 24,999 exceeds the Rs. 20,000 threshold and requires human approval.",
+    "createdAt": "2026-07-28T14:30:00Z",
+    "approvedBy": "admin@trendly.com",
+    "approvedAt": "2026-09-29T17:38:06.311416+00:00",
+    "approvalNote": "Approved by Admin"
+  },
+  {
+    "returnId": "RET-91044",
+    "orderId": "TR-9901",
+    "customerId": "C-102",
+    "customerEmail": "priya.nair@example.com",
+    "reason": "Designer apparel bundle sizing mismatch",
+    "refundAmount": 32000,
+    "requiresApproval": true,
+    "status": "PENDING_APPROVAL",
+    "approvalReason": "Refund amount Rs. 32,000 exceeds the Rs. 20,000 threshold and requires human approval.",
+    "createdAt": "2026-07-29T10:15:00Z"
+  },
+  {
+    "returnId": "RET-77120",
+    "orderId": "TR-9880",
+    "customerId": "C-100",
+    "customerEmail": "ananya.rao@example.com",
+    "reason": "Defective stitching verified by customer photos",
+    "refundAmount": 21500,
+    "requiresApproval": true,
+    "status": "APPROVED",
+    "approvalReason": "Approved by Admin on 2026-07-27",
+    "createdAt": "2026-07-26T09:00:00Z"
+  },
+  {
+    "returnId": "RET-40112",
+    "orderId": "TR-4522",
+    "customerId": "C-101",
+    "customerEmail": "marcus.bell@example.com",
+    "reason": "Size too large for Everyday Cotton Tee",
+    "refundAmount": 1798,
+    "requiresApproval": false,
+    "status": "RAISED",
+    "approvalReason": null,
+    "createdAt": "2026-07-27T16:20:00Z"
+  },
+  {
+    "returnId": "RET-51009",
+    "orderId": "TR-4519",
+    "customerId": "C-100",
+    "customerEmail": "ananya.rao@example.com",
+    "reason": "Color mismatch from product photos",
+    "refundAmount": 3499,
+    "requiresApproval": false,
+    "status": "APPROVED",
+    "approvalReason": null,
+    "createdAt": "2026-07-25T11:45:00Z"
+  },
+  {
+    "returnId": "RET-62301",
+    "orderId": "TR-4520",
+    "customerId": "C-103",
+    "customerEmail": "diego.ramos@example.com",
+    "reason": "Battery draining rapidly on smartwatch",
+    "refundAmount": 8999,
+    "requiresApproval": false,
+    "status": "RAISED",
+    "approvalReason": null,
+    "createdAt": "2026-07-28T08:10:00Z"
+  }
+]

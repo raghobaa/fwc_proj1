@@ -5,23 +5,26 @@ import api from "./services/api";
 import Login from "./components/Login";
 import { setAuthToken } from "./services/api";
 
-const initialMessages = [
+const getInitialMessages = (userRole) => [
   {
     role: "assistant",
-    text: "Hello! I'm Trendly AI. How can I help you today?",
+    text:
+      userRole === "admin"
+        ? "Hello Admin! I am your Trendly Admin Assistant. I can help you review and approve high-value pending returns (> ₹20,000), lookup any customer order, check support tickets, or search policies. How can I help you today?"
+        : "Hello! I'm Trendly AI. How can I help you today?",
   },
 ];
 
 export default function App() {
   const [authToken, setAuthTokenState] = useState(null);
   const [role, setRole] = useState(null);
-const [showLogin, setShowLogin] = useState(true);
+  const [showLogin, setShowLogin] = useState(true);
 
-  // Single default customer ID (no dropdown)
+  // Single default customer ID
   const customerId = "C-101";
 
   const [customerChats, setCustomerChats] = useState({
-    "C-101": initialMessages,
+    "C-101": getInitialMessages(null),
   });
 
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,9 @@ const [showLogin, setShowLogin] = useState(true);
       setAuthTokenState(token);
       setRole(storedRole);
       setShowLogin(false);
+      setCustomerChats({
+        [customerId]: getInitialMessages(storedRole),
+      });
     }
   }, []);
 
@@ -47,10 +53,13 @@ const [showLogin, setShowLogin] = useState(true);
           const dbMessages = data.messages || [];
           setCustomerChats((prev) => ({
             ...prev,
-            [customerId]: dbMessages.length > 0 ? dbMessages.map(m => ({
-              role: m.role === "human" ? "user" : "assistant",
-              text: m.text
-            })) : initialMessages,
+            [customerId]:
+              dbMessages.length > 0
+                ? dbMessages.map((m) => ({
+                    role: m.role === "human" ? "user" : "assistant",
+                    text: m.text,
+                  }))
+                : getInitialMessages(role),
           }));
         } catch (err) {
           console.error("Failed to load chat history", err);
@@ -58,7 +67,7 @@ const [showLogin, setShowLogin] = useState(true);
       };
       fetchHistory();
     }
-  }, [authToken]);
+  }, [authToken, role]);
 
   const handleLogin = (token, userRole) => {
     localStorage.setItem("token", token);
@@ -67,17 +76,20 @@ const [showLogin, setShowLogin] = useState(true);
     setAuthTokenState(token);
     setRole(userRole);
     setShowLogin(false);
+    setCustomerChats({
+      [customerId]: getInitialMessages(userRole),
+    });
   };
 
   // Current customer's conversation
-  const messages = customerChats[customerId] ?? initialMessages;
+  const messages = customerChats[customerId] ?? getInitialMessages(role);
 
   const handleSend = async (message) => {
     // Show user message immediately
     setCustomerChats((prev) => ({
       ...prev,
       [customerId]: [
-        ...(prev[customerId] ?? initialMessages),
+        ...(prev[customerId] ?? getInitialMessages(role)),
         { role: "user", text: message },
       ],
     }));
@@ -93,7 +105,7 @@ const [showLogin, setShowLogin] = useState(true);
       setCustomerChats((prev) => ({
         ...prev,
         [customerId]: [
-          ...(prev[customerId] ?? initialMessages),
+          ...(prev[customerId] ?? getInitialMessages(role)),
           { role: "assistant", text: data.response },
         ],
       }));
@@ -103,7 +115,7 @@ const [showLogin, setShowLogin] = useState(true);
       setCustomerChats((prev) => ({
         ...prev,
         [customerId]: [
-          ...(prev[customerId] ?? initialMessages),
+          ...(prev[customerId] ?? getInitialMessages(role)),
           {
             role: "assistant",
             text: "Sorry, something went wrong while contacting the server.",
@@ -121,7 +133,7 @@ const [showLogin, setShowLogin] = useState(true);
     setAuthToken(null);
     setAuthTokenState(null);
     setRole(null);
-    setCustomerChats({ [customerId]: initialMessages });
+    setCustomerChats({ [customerId]: getInitialMessages(null) });
   };
 
   // If not logged in, show login screen first
@@ -136,16 +148,25 @@ const [showLogin, setShowLogin] = useState(true);
         {/* Header */}
         <div className="border-b border-blue-700 bg-[#2563EB] px-6 py-4 text-white sm:px-7 sm:py-5 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Trendly AI Support Assistant
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Trendly AI Support Assistant
+              </h1>
+              {role === "admin" && (
+                <span className="rounded-full bg-amber-400 text-blue-950 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider shadow-sm">
+                  Admin Console
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-blue-100">
-              Agentic Customer Support powered by Gemini + MongoDB Atlas
+              {role === "admin"
+                ? "Administrative Operations & Return Approval Console"
+                : "Agentic Customer Support powered by Gemini + MongoDB Atlas"}
             </p>
           </div>
           <button
             onClick={handleLogout}
-            className="rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-sm font-semibold transition"
+            className="rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-sm font-semibold transition cursor-pointer"
           >
             Logout
           </button>
@@ -163,3 +184,4 @@ const [showLogin, setShowLogin] = useState(true);
     </div>
   );
 }
+

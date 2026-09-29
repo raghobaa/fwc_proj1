@@ -3,6 +3,7 @@ uvicorn
 motor
 langchain
 langchain-google-genai
+langchain-groq
 pydantic
 pydantic-settings
 python-dotenv

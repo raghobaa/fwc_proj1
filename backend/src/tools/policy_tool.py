@@ -1,4 +1,4 @@
-from src.config.gemini import get_embeddings
+from src.config.llm import get_embeddings
 from src.config.database import get_db
 
 async def search_policy(query: str) -> dict:

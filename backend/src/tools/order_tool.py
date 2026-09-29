@@ -1,11 +1,15 @@
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize MongoDB connection at module level
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGO_URI)
-db = client["store_db"]
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+client = MongoClient(MONGODB_URI)
+db = client["trendly"]
 orders_collection = db["orders"]
 customers_collection = db["customers"]
 
@@ -62,3 +66,10 @@ def get_order(order_id: str, customer_id: str) -> dict:
 def customer_exists(customer_id: str) -> bool:
     """Check if a customer exists."""
     return customers_collection.count_documents({"customer_id": customer_id}) > 0
+
+def get_customer_id_by_email(email: str):
+    """Resolve a customer ID from the authenticated email, or None if unknown."""
+    if not email:
+        return None
+    customer = customers_collection.find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+    return customer.get("customer_id") if customer else None

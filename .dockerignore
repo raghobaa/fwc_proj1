@@ -1,0 +1,43 @@
+# ── Git ──────────────────────────────────────────
+.git
+.gitignore
+
+# ── OS ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor / IDE ─────────────────────────────────
+.vscode
+.idea
+*.swp
+*.swo
+
+# ── Python (backend) ─────────────────────────────
+backend/venv
+backend/.venv
+backend/__pycache__
+backend/**/__pycache__
+backend/**/*.pyc
+backend/**/*.pyo
+backend/.pytest_cache
+backend/.mypy_cache
+backend/.ruff_cache
+backend/htmlcov
+backend/.coverage
+
+# ── Node (frontend) ──────────────────────────────
+frontend/node_modules
+frontend/dist
+frontend/.cache
+frontend/.vite
+
+# ── Environment / Secrets ────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Docs / misc ──────────────────────────────────
+README.md
+SOLUTION.md
+PROMPTS.md
+*.md

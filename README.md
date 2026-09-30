@@ -1,6 +1,6 @@
 # Trendly AI Support Assistant
 
-An AI-powered, agentic customer support assistant built for **Trendly** using **LangChain**, **FastAPI**, **Google Gemini Function Calling**, **Groq Fallback**, and **MongoDB Atlas Vector Search (RAG)** with deterministic return pipelines and JWT-based authentication.
+An AI-powered, agentic customer support assistant built for **Trendly** using **LangChain**, **FastAPI**, **Google Gemini Function Calling**, **Groq Fallback**, **Ollama (Mistral 7B — local/on-premises)**, and **MongoDB Atlas Vector Search (RAG)** with deterministic return pipelines and JWT-based authentication.
 
 ---
 
@@ -35,20 +35,23 @@ You can sign in using any of the following accounts:
                                       │
                    LangChain Agent Orchestration Loop
                                       │
-                 ┌────────────────────┴────────────────────┐
-                 │                                         │
-        Google Gemini 2.5 Flash              Groq LLaMA 3.3 70B
-         (Primary Model + Tools)          (Rate Limit / Quota Fallback)
-                 │                                         │
-                 └────────────────────┬────────────────────┘
-                                      │
-      ┌──────────────────┬────────────┴───────┬──────────────────┐
-      │                  │                    │                  │
-  Order Tool       Policy RAG Tool      Support Tool       Return Flow
-(get_order)       (search_policy)     (create_ticket)    (create_return)
-      │                  │                    │                  │
- MongoDB /      MongoDB Vector Search     Generated        Multi-step Return
-orders.json     + Local Policy RAG        Ticket ID         Pipeline & Approval
+                  ┌────────────────────┴────────────────────┐
+                  │                                         │
+      ┌───────────┴───────────┐                Groq LLaMA 3.3 70B
+      │                       │           (Rate Limit / Quota Fallback)
+Google Gemini 2.5 Flash  Ollama Mistral 7B                  │
+  (Cloud · Primary)      (Local · On-Prem)                  │
+      │                       │                             │
+      └───────────┬───────────┘                             │
+                  └──────────────────────┬──────────────────┘
+                                         │
+       ┌──────────────────┬──────────────┴──┬──────────────────┐
+       │                  │                 │                  │
+   Order Tool       Policy RAG Tool   Support Tool       Return Flow
+ (get_order)       (search_policy)  (create_ticket)    (create_return)
+       │                  │                 │                  │
+  MongoDB /      MongoDB Vector Search  Generated        Multi-step Return
+ orders.json     + Local Policy RAG     Ticket ID        Pipeline & Approval
 ```
 
 ### 1. User Authentication & Customer Isolation
@@ -95,7 +98,8 @@ When a return is requested, `create_return` runs a 5-step automated workflow:
 ### Backend
 - **Python 3.10+**
 - **FastAPI & Uvicorn**
-- **LangChain** (`langchain`, `langchain-core`, `langchain-google-genai`, `langchain-groq`)
+- **LangChain** (`langchain`, `langchain-core`, `langchain-google-genai`, `langchain-groq`, `langchain-ollama`)
+- **Ollama** — local inference with `mistral` (7B); swap model via `OLLAMA_MODEL` in `.env`
 - **PyJWT & Passlib / Bcrypt**
 - **MongoDB Atlas & Motor**
 - **Pydantic v2**
@@ -133,7 +137,11 @@ When a return is requested, `create_return` runs a 5-step automated workflow:
    GROQ_API_KEY=your_groq_api_key
    GROQ_MODEL=llama-3.3-70b-versatile
    MONGODB_URI=your_mongodb_atlas_connection_string
+   # Ollama (local) — change to any model you have pulled e.g. llama3.2, gemma2
+   OLLAMA_MODEL=mistral
    ```
+
+   > **Ollama setup**: Install [Ollama](https://ollama.com), then run `ollama pull mistral` before starting the backend. Ollama must be running on `http://localhost:11434`.
 
 5. (Optional) Seed data:
    ```bash

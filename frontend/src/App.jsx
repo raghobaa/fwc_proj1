@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { Routes, Route } from "react-router-dom";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import api from "./services/api";
 import Login from "./components/Login";
 import { setAuthToken } from "./services/api";
+import LLMDashboard from "./components/LLMDashboard";
+
 
 const getInitialMessages = (userRole) => [
   {
@@ -136,52 +139,58 @@ export default function App() {
     setCustomerChats({ [customerId]: getInitialMessages(null) });
   };
 
-  // If not logged in, show login screen first
-  if (!authToken) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
-    <div className="min-h-screen bg-[#F7F7F8] px-4 py-6 sm:px-6 lg:flex lg:items-center lg:px-8">
-      <div className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm lg:h-[calc(100dvh-3rem)]">
+    <Routes>
+      {/* Public — no auth required */}
+      <Route path="/llm-report" element={<LLMDashboard />} />
 
-        {/* Header */}
-        <div className="border-b border-blue-700 bg-[#2563EB] px-6 py-4 text-white sm:px-7 sm:py-5 flex justify-between items-center">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Trendly AI Support Assistant
-              </h1>
-              {role === "admin" && (
-                <span className="rounded-full bg-amber-400 text-blue-950 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider shadow-sm">
-                  Admin Console
-                </span>
-              )}
+      {/* Auth-gated chat app */}
+      <Route
+        path="/*"
+        element={
+          !authToken ? (
+            <Login onLogin={handleLogin} />
+          ) : (
+            <div className="min-h-screen bg-[#F7F7F8] px-4 py-6 sm:px-6 lg:flex lg:items-center lg:px-8">
+              <div className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm lg:h-[calc(100dvh-3rem)]">
+
+                {/* Header */}
+                <div className="border-b border-blue-700 bg-[#2563EB] px-6 py-4 text-white sm:px-7 sm:py-5 flex justify-between items-center">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                        Trendly AI Support Assistant
+                      </h1>
+                      {role === "admin" && (
+                        <span className="rounded-full bg-amber-400 text-blue-950 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider shadow-sm">
+                          Admin Console
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-blue-100">
+                      {role === "admin"
+                        ? "Administrative Operations & Return Approval Console"
+                        : "Agentic Customer Support powered by Gemini + MongoDB Atlas"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-sm font-semibold transition cursor-pointer"
+                  >
+                    Logout
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-4 sm:px-7 sm:pb-6 sm:pt-5">
+                  <ChatWindow messages={messages} />
+                  <ChatInput onSend={handleSend} loading={loading} />
+                </div>
+              </div>
             </div>
-            <p className="mt-1 text-sm text-blue-100">
-              {role === "admin"
-                ? "Administrative Operations & Return Approval Console"
-                : "Agentic Customer Support powered by Gemini + MongoDB Atlas"}
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-sm font-semibold transition cursor-pointer"
-          >
-            Logout
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-4 sm:px-7 sm:pb-6 sm:pt-5">
-
-          <ChatWindow messages={messages} />
-
-          <ChatInput onSend={handleSend} loading={loading} />
-
-        </div>
-      </div>
-    </div>
+          )
+        }
+      />
+    </Routes>
   );
 }
-

@@ -1,8 +1,12 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialEmail = typeof location.state?.email === "string" ? location.state.email : "";
+  const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,10 +55,35 @@ export default function Login({ onLogin }) {
           padding: "2.5rem 2rem",
           boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
           backdropFilter: "blur(10px)",
+          position: "relative",
         }}
       >
+        {/* Back Button */}
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          style={{
+            position: "absolute",
+            top: "1.25rem",
+            left: "1.25rem",
+            background: "none",
+            border: "none",
+            color: "#6b7280",
+            fontSize: "0.85rem",
+            fontWeight: "600",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+          onMouseEnter={(e) => (e.target.style.color = "#2563eb")}
+          onMouseLeave={(e) => (e.target.style.color = "#6b7280")}
+        >
+          ← Home
+        </button>
+
         {/* Logo / Brand */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+        <div style={{ textAlign: "center", marginBottom: "2rem", marginTop: "0.5rem" }}>
           <div
             style={{
               width: "56px",

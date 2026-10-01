@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const complaints = [
   { id: 1, text: '"Where is my order TR-4522? It\'s been 5 days."' },
@@ -136,6 +137,7 @@ function StarBar({ score }) {
 }
 
 export default function LLMDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [hoveredRow, setHoveredRow] = useState(null);
 
@@ -144,6 +146,22 @@ export default function LLMDashboard() {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", fontFamily: "'Inter',sans-serif", color: "#e2e8f0", padding: "0 0 60px" }}>
+
+      {/* ── Top Bar ──────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 32px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(15,12,41,0.85)", backdropFilter: "blur(12px)" }}>
+        <button
+          onClick={() => navigate("/")}
+          style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 14px", color: "#cbd5e1", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+        >
+          ← Back to Home
+        </button>
+        <button
+          onClick={() => navigate("/chat")}
+          style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", boxShadow: "0 4px 14px rgba(99,102,241,0.4)" }}
+        >
+          🚀 Launch Chat App
+        </button>
+      </div>
 
       {/* ── Hero Header ─────────────────────────────────── */}
       <div style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "32px 24px 28px", textAlign: "center" }}>

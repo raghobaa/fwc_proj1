@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import api from "./services/api";
 import Login from "./components/Login";
 import { setAuthToken } from "./services/api";
 import LLMDashboard from "./components/LLMDashboard";
-
+import Landing from "./components/Landing";
 
 const getInitialMessages = (userRole) => [
   {
@@ -18,21 +18,48 @@ const getInitialMessages = (userRole) => [
   },
 ];
 
+// ── Chat page (protected) ──────────────────────────
+function ChatApp({ onLogout, role, messages, onSend, loading }) {
+  return (
+    <div className="min-h-screen bg-[#F7F7F8] px-4 py-6 sm:px-6 lg:flex lg:items-center lg:px-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm lg:h-[calc(100dvh-3rem)]">
+        <div className="border-b border-blue-700 bg-[#2563EB] px-6 py-4 text-white sm:px-7 sm:py-5 flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Trendly AI Support Assistant</h1>
+              {role === "admin" && (
+                <span className="rounded-full bg-amber-400 text-blue-950 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider shadow-sm">
+                  Admin Console
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-blue-100">
+              {role === "admin"
+                ? "Administrative Operations & Return Approval Console"
+                : "Agentic Customer Support powered by Gemini + MongoDB Atlas"}
+            </p>
+          </div>
+          <button onClick={onLogout} className="rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-sm font-semibold transition cursor-pointer">
+            Logout
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-4 sm:px-7 sm:pb-6 sm:pt-5">
+          <ChatWindow messages={messages} />
+          <ChatInput onSend={onSend} loading={loading} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Root app with state ────────────────────────────
 export default function App() {
   const [authToken, setAuthTokenState] = useState(null);
   const [role, setRole] = useState(null);
-  const [showLogin, setShowLogin] = useState(true);
-
-  // Single default customer ID
+  const [customerChats, setCustomerChats] = useState({ "C-101": getInitialMessages(null) });
+  const [loading, setLoading] = useState(false);
   const customerId = "C-101";
 
-  const [customerChats, setCustomerChats] = useState({
-    "C-101": getInitialMessages(null),
-  });
-
-  const [loading, setLoading] = useState(false);
-
-  // Load token from localStorage on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
@@ -40,35 +67,21 @@ export default function App() {
       setAuthToken(token);
       setAuthTokenState(token);
       setRole(storedRole);
-      setShowLogin(false);
-      setCustomerChats({
-        [customerId]: getInitialMessages(storedRole),
-      });
+      setCustomerChats({ [customerId]: getInitialMessages(storedRole) });
     }
   }, []);
 
-  // Fetch history when token is available
   useEffect(() => {
     if (authToken) {
-      const fetchHistory = async () => {
-        try {
-          const { data } = await api.get("/chat/history");
-          const dbMessages = data.messages || [];
-          setCustomerChats((prev) => ({
-            ...prev,
-            [customerId]:
-              dbMessages.length > 0
-                ? dbMessages.map((m) => ({
-                    role: m.role === "human" ? "user" : "assistant",
-                    text: m.text,
-                  }))
-                : getInitialMessages(role),
-          }));
-        } catch (err) {
-          console.error("Failed to load chat history", err);
-        }
-      };
-      fetchHistory();
+      api.get("/chat/history").then(({ data }) => {
+        const msgs = data.messages || [];
+        setCustomerChats((prev) => ({
+          ...prev,
+          [customerId]: msgs.length > 0
+            ? msgs.map((m) => ({ role: m.role === "human" ? "user" : "assistant", text: m.text }))
+            : getInitialMessages(role),
+        }));
+      }).catch(() => {});
     }
   }, [authToken, role]);
 
@@ -78,119 +91,115 @@ export default function App() {
     setAuthToken(token);
     setAuthTokenState(token);
     setRole(userRole);
-    setShowLogin(false);
-    setCustomerChats({
-      [customerId]: getInitialMessages(userRole),
-    });
+    setCustomerChats({ [customerId]: getInitialMessages(userRole) });
   };
 
-  // Current customer's conversation
-  const messages = customerChats[customerId] ?? getInitialMessages(role);
-
-  const handleSend = async (message) => {
-    // Show user message immediately
-    setCustomerChats((prev) => ({
-      ...prev,
-      [customerId]: [
-        ...(prev[customerId] ?? getInitialMessages(role)),
-        { role: "user", text: message },
-      ],
-    }));
-
-    setLoading(true);
-
-    try {
-      const { data } = await api.post("/chat", {
-        message,
-        customerId,
-      });
-
-      setCustomerChats((prev) => ({
-        ...prev,
-        [customerId]: [
-          ...(prev[customerId] ?? getInitialMessages(role)),
-          { role: "assistant", text: data.response },
-        ],
-      }));
-    } catch (error) {
-      console.error(error);
-
-      setCustomerChats((prev) => ({
-        ...prev,
-        [customerId]: [
-          ...(prev[customerId] ?? getInitialMessages(role)),
-          {
-            role: "assistant",
-            text: "Sorry, something went wrong while contacting the server.",
-          },
-        ],
-      }));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = (navigate) => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     setAuthToken(null);
     setAuthTokenState(null);
     setRole(null);
     setCustomerChats({ [customerId]: getInitialMessages(null) });
+    navigate("/");
   };
+
+  const handleSend = async (message) => {
+    setCustomerChats((prev) => ({
+      ...prev,
+      [customerId]: [...(prev[customerId] ?? getInitialMessages(role)), { role: "user", text: message }],
+    }));
+    setLoading(true);
+    try {
+      const { data } = await api.post("/chat", { message, customerId });
+      setCustomerChats((prev) => ({
+        ...prev,
+        [customerId]: [...(prev[customerId] ?? getInitialMessages(role)), { role: "assistant", text: data.response }],
+      }));
+    } catch {
+      setCustomerChats((prev) => ({
+        ...prev,
+        [customerId]: [...(prev[customerId] ?? getInitialMessages(role)), { role: "assistant", text: "Sorry, something went wrong while contacting the server." }],
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const messages = customerChats[customerId] ?? getInitialMessages(role);
 
   return (
     <Routes>
-      {/* Public — no auth required */}
+      {/* Public landing */}
+      <Route path="/" element={<LandingGate authToken={authToken} />} />
+
+      {/* Public LLM report */}
       <Route path="/llm-report" element={<LLMDashboard />} />
 
-      {/* Auth-gated chat app */}
+      {/* Login page */}
+      <Route path="/login" element={<LoginGate authToken={authToken} onLogin={handleLogin} />} />
+
+      {/* Protected chat */}
       <Route
-        path="/*"
+        path="/chat"
         element={
-          !authToken ? (
-            <Login onLogin={handleLogin} />
-          ) : (
-            <div className="min-h-screen bg-[#F7F7F8] px-4 py-6 sm:px-6 lg:flex lg:items-center lg:px-8">
-              <div className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm lg:h-[calc(100dvh-3rem)]">
-
-                {/* Header */}
-                <div className="border-b border-blue-700 bg-[#2563EB] px-6 py-4 text-white sm:px-7 sm:py-5 flex justify-between items-center">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                        Trendly AI Support Assistant
-                      </h1>
-                      {role === "admin" && (
-                        <span className="rounded-full bg-amber-400 text-blue-950 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider shadow-sm">
-                          Admin Console
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-sm text-blue-100">
-                      {role === "admin"
-                        ? "Administrative Operations & Return Approval Console"
-                        : "Agentic Customer Support powered by Gemini + MongoDB Atlas"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-sm font-semibold transition cursor-pointer"
-                  >
-                    Logout
-                  </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-5 pt-4 sm:px-7 sm:pb-6 sm:pt-5">
-                  <ChatWindow messages={messages} />
-                  <ChatInput onSend={handleSend} loading={loading} />
-                </div>
-              </div>
-            </div>
-          )
+          authToken
+            ? <ChatGate role={role} messages={messages} onSend={handleSend} loading={loading} onLogout={handleLogout} />
+            : <RedirectTo to="/login" />
         }
       />
     </Routes>
   );
 }
+
+// ── Small helper components with navigate access ───
+function LandingGate({ authToken }) {
+  const navigate = useNavigate();
+  return (
+    <Landing
+      onLaunchChat={() => {
+        if (authToken) {
+          navigate("/chat");
+        } else {
+          navigate("/login");
+        }
+      }}
+      onGoToLogin={(prefillEmail) => {
+        if (typeof prefillEmail === "string") {
+          navigate("/login", { state: { email: prefillEmail } });
+        } else if (authToken) {
+          navigate("/chat");
+        } else {
+          navigate("/login");
+        }
+      }}
+    />
+  );
+}
+
+function LoginGate({ authToken, onLogin }) {
+  const navigate = useNavigate();
+  if (authToken) { navigate("/chat"); return null; }
+  return (
+    <Login
+      onLogin={(token, role) => {
+        onLogin(token, role);
+        navigate("/chat");
+      }}
+    />
+  );
+}
+
+function ChatGate({ role, messages, onSend, loading, onLogout }) {
+  const navigate = useNavigate();
+  return <ChatApp role={role} messages={messages} onSend={onSend} loading={loading} onLogout={() => onLogout(navigate)} />;
+}
+
+function RedirectTo({ to }) {
+  const navigate = useNavigate();
+  useEffect(() => { navigate(to); }, []);
+  return null;
+}
+
+
+
